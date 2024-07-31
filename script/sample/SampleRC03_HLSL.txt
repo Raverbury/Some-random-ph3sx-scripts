@@ -1,0 +1,108 @@
+sampler samp0_ : register(s0);
+
+//The following semantic-linked global variables are provided by the engine.
+//	WORLD		(float4x4)
+//		The camera matrix. This can be ignored when the particle lists are not intended to be billboarded.
+//	VIEW		(float4x4)
+//		The view matrix. Used to transform world coordinates to camera coordinates.
+//	PROJECTION	(float4x4)
+//		The projection matrix. Used to transform camera coordinates to device coordinates.
+//	FOGENABLE	(bool)
+//		A boolean indicating whether fog was enabled for the particle list object.
+//	FOGCOLOR	(float4)
+//		The color of the fog set with SetFogParam. The packing format is (r, g, b, a).
+//	FOGDIST		(float2)
+//		The ranges of the fog set with SetFogParam. The packing format is (fog start, fog end).
+float4x4 g_mCamera : WORLD : register(c0);
+float4x4 g_mView : VIEW : register(c4);
+float4x4 g_mProj : PROJECTION : register(c8);
+bool g_bUseFog : FOGENABLE : register(b0) = false;
+float4 g_vFogColor : FOGCOLOR : register(c12) = float4(0.0f, 0.0f, 0.0f, 0.0f);
+float2 g_vFogDist : FOGDIST : register(c13) = float2(0.0f, 256.0f);
+
+struct VS_INPUT {
+	//Vertex data
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+	
+	//Instance data
+	float4 i_color	: COLOR1;
+	float4 i_xyz_pos_x_scale 	: TEXCOORD1;	//Pack: (x pos, y pos, z pos, x scale)
+	float4 i_yz_scale_xy_ang 	: TEXCOORD2;	//Pack: (y scale, z scale, x angle, y angle)
+	float4 i_z_ang_extra		: TEXCOORD3;	//Pack: (z angle, extra 1, extra 2, extra 3)
+};
+struct PS_INPUT {
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+	float fogBlend	: FOG;
+};
+
+PS_INPUT mainVS(VS_INPUT inVs) {
+	PS_INPUT outVs;
+	
+	float3 t_scale = float3(inVs.i_xyz_pos_x_scale.w, inVs.i_yz_scale_xy_ang.xy);
+	
+	float2 ax = float2(sin(inVs.i_yz_scale_xy_ang.z), cos(inVs.i_yz_scale_xy_ang.z));
+	float2 ay = float2(sin(inVs.i_yz_scale_xy_ang.w), cos(inVs.i_yz_scale_xy_ang.w));
+	float2 az = float2(sin(inVs.i_z_ang_extra.x), cos(inVs.i_z_ang_extra.x));
+	
+	//Creates the transformation matrix.
+	//Calculate positions later after transformation with g_mCamera. Necessary for billboarded sprites to render correctly.
+	float4x4 matInstance = float4x4(
+		float4(
+			t_scale.x * (ay.y * az.y - ax.x * ay.x * az.x),
+			t_scale.x * (-ax.y * az.x),
+			t_scale.x * (ay.x * az.y + ax.x * ay.y * az.x),
+			0
+		),
+		float4(
+			t_scale.y * (ay.y * az.x + ax.x * ay.x * az.y),
+			t_scale.y * (ax.y * az.y),
+			t_scale.y * (ay.x * az.x - ax.x * ay.y * az.y),
+			0
+		),
+		float4(
+			t_scale.z * (-ax.y * ay.x),
+			t_scale.z * (ax.x),
+			t_scale.z * (ax.y * ay.y),
+			0
+		),
+		float4(0, 0, 0, 1)
+	);
+
+	outVs.diffuse = inVs.diffuse * inVs.i_color;
+	outVs.texCoord = inVs.texCoord;
+	
+	outVs.position = mul(inVs.position, matInstance);
+	outVs.position = mul(outVs.position, g_mCamera);
+	//After billboarding has been accounted for, add the instance positions.
+	outVs.position.xyz += inVs.i_xyz_pos_x_scale.xyz;
+	outVs.position = mul(outVs.position, g_mView);
+	
+	//Compute fog while the position is in camera space.
+	if (g_bUseFog)
+		outVs.fogBlend = saturate((g_vFogDist.y - outVs.position.z) / (g_vFogDist.y - g_vFogDist.x));
+	
+	outVs.position = mul(outVs.position, g_mProj);
+
+	return outVs;
+}
+
+float4 mainPS(PS_INPUT inPs) : COLOR0 {
+	float4 color = tex2D(samp0_, inPs.texCoord);
+
+	if (g_bUseFog)
+		color.rgb = lerp(g_vFogColor.rgb, color.rgb, inPs.fogBlend);
+
+	return (color * inPs.diffuse);
+}
+
+technique Render {
+	pass P0 {
+		VertexShader = compile vs_3_0 mainVS();
+		PixelShader = compile ps_3_0 mainPS();
+	}
+}
+

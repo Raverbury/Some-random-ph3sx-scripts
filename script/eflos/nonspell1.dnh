@@ -1,0 +1,186 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["Eflos.Nonspell1"]
+#Text["Nonspell 1"]
+
+// Shotsheet
+#include "script/default_system/Default_ShotConst.txt"
+
+// Libs
+#include "script/Cutin/Cutin.txt"
+#include "script/Gizmo/GizmoSpriteLibrary.txt"
+#include "./lib/common.dnh"
+
+let objBoss;
+let objScene = GetEnemyBossSceneObjectID();
+let cutinBoss = GetCurrentScriptDirectory() ~ "asset/img/cutin_sekibanki.png";
+
+let objSE;
+let objSEShotSound;
+
+@Event{
+    alternative (GetEventType())
+    case (EV_REQUEST_LIFE) {
+        SetScriptResult(1900);
+    }
+    case (EV_REQUEST_TIMER) {
+        SetScriptResult(62);
+    }
+    case (EV_REQUEST_SPELL_SCORE) {
+        SetScriptResult(0);
+    }
+    others {
+        // do something in default case
+    }
+}
+
+@Initialize{
+    objBoss = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+    ObjEnemy_Regist(objBoss);
+    LoadAndPlayBGM(GetCurrentScriptDirectory() ~ "asset/bgm/th10_12.ogg");
+
+    TDrawBoss;
+    TFinalize(objBoss, objScene);
+    TFirePattern;
+}
+
+@MainLoop{
+    ObjEnemy_SetIntersectionCircleToShot(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 32); 
+    ObjEnemy_SetIntersectionCircleToPlayer(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 24);
+    yield;
+}
+
+task TDrawBoss {
+    renderKaguyaIN(objBoss);
+    return;
+}
+
+task TFirePattern {
+    ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 120, 60);
+    wait(120);
+    TFireLine;
+    TFireLine;
+    TFireLine2;
+    TFireLine2;
+    TFireRing;
+}
+
+task TFireRing() {
+    let BRANCH = 30;
+    let INTERVAL = 60;
+    while (ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) {
+        let bossX = ObjMove_GetX(objBoss);
+        let bossY = ObjMove_GetY(objBoss);
+        let randomAngle = rand(-10.0, 10.0);
+        ascent(i in 0..BRANCH) {
+            CreateShotA1(bossX, bossY, 2.4, 360.0 / BRANCH * i + randomAngle, DS_BALL_M_RED, 20);
+        }
+        wait(INTERVAL);
+    }
+}
+
+task TFireLine() {
+    let centerX = GetCenterX();
+    let centerY = GetCenterY();
+    let stageWidth = GetStgFrameWidth();
+    let stageHeight = GetStgFrameHeight();
+    let LINE_LENGTH = GetStgFrameWidth() / 2;
+    let BRANCH = 20;
+    let SPAWN_INTERVAL = 1;
+    let ATTACK_INTERVAL = 60;
+    let currentBranch = 0;
+
+    let startX = centerX + rand(stageWidth / 4, stageWidth / 3);
+    let startY = centerX - rand(0, stageHeight / 3);
+    let runAngle = rand(160, 200);
+    let direction = rand_int(0, 1);
+    let aimX = 0;
+    let aimY = 0;
+    let oddSlash = 0;
+    while (ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) {
+        if (currentBranch == 0) {
+            aimX = GetPlayerX();
+            aimY = GetPlayerY();
+            startX = centerX + rand(stageWidth / 4, stageWidth / 3);
+            startY = centerX - rand(0, stageHeight / 3);
+            runAngle = rand(140, 220);
+            direction = rand_int(0, 1);
+            if (direction == 1) {
+                runAngle += 180;
+                startX -= centerX;
+            }
+        }
+        let shotX = startX + cos(runAngle) * LINE_LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let shotY = startY + sin(runAngle) * LINE_LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let angle = atan2((aimY - shotY), (aimX - shotX));
+        if (oddSlash) {
+            angle *= -1;
+        }
+        CreateShotA1(shotX, shotY, 6, -angle, DS_SCALE_SKY, 30 + BRANCH - currentBranch);
+        CreateShotA1(shotX, shotY, 4, angle, DS_SCALE_PURPLE, BRANCH - currentBranch);
+        
+        // ObjMove_SetAngle(bullet, GetAngleToPlayer(bullet));
+        currentBranch += 1;
+        if (currentBranch >= BRANCH) {
+            currentBranch = 0;
+            oddSlash = !oddSlash;
+            wait(ATTACK_INTERVAL);
+        }
+        else {
+            wait(SPAWN_INTERVAL);
+        }
+    }
+}
+
+task TFireLine2() {
+    let centerX = GetCenterX();
+    let centerY = GetCenterY();
+    let stageWidth = GetStgFrameWidth();
+    let stageHeight = GetStgFrameHeight();
+    let LINE_LENGTH = GetStgFrameHeight() / 2;
+    let BRANCH = 20;
+    let SPAWN_INTERVAL = 1;
+    let ATTACK_INTERVAL = 60;
+    let currentBranch = 0;
+
+    let startX = centerX + rand(stageWidth / 4, stageWidth / 3);
+    let startY = centerX - rand(0, stageHeight / 3);
+    let runAngle = rand(160, 200);
+    let direction = rand_int(0, 1);
+    let aimX = 0;
+    let aimY = 0;
+    let oddSlash = 1;
+    while (ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) {
+        if (currentBranch == 0) {
+            aimX = GetPlayerX();
+            aimY = GetPlayerY();
+            startX = centerX + rand(stageWidth / 4, stageWidth / 3);
+            startY = centerX - rand(0, stageHeight / 2.2);
+            runAngle = rand(70, 130);
+            direction = rand_int(0, 1);
+            if (direction == 1) {
+                runAngle -= 20;
+                startX -= centerX;
+            }
+        }
+        let shotX = startX + cos(runAngle) * LINE_LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let shotY = startY + sin(runAngle) * LINE_LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let angle = atan2((aimY - shotY), (aimX - shotX));
+        if (oddSlash) {
+            angle *= -1;
+        }
+        CreateShotA1(shotX, shotY, 6, -angle, DS_SCALE_RED, 30 + BRANCH - currentBranch);
+        CreateShotA1(shotX, shotY, 4, angle, DS_SCALE_ORANGE, BRANCH - currentBranch);
+        
+        // ObjMove_SetAngle(bullet, GetAngleToPlayer(bullet));
+        currentBranch += 1;
+        if (currentBranch >= BRANCH) {
+            currentBranch = 0;
+            oddSlash = !oddSlash;
+            wait(ATTACK_INTERVAL);
+        }
+        else {
+            wait(SPAWN_INTERVAL);
+        }
+    }
+}

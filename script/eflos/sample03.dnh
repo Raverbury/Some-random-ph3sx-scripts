@@ -1,0 +1,213 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["Eflos.Sample03"]
+#Text["Eflos.Sample03: Le star"]
+
+// Shotsheet
+#include "script/default_system/Default_ShotConst.txt"
+
+// Libs
+#include "script/Cutin/Cutin.txt"
+#include "script/Gizmo/GizmoSpriteLibrary.txt"
+#include "./lib/common.dnh"
+
+let objBoss;
+let objScene = GetEnemyBossSceneObjectID();
+let cutinBoss = GetCurrentScriptDirectory() ~ "asset/img/cutin_sekibanki.png";
+
+let objSE;
+let objSEShotSound;
+
+@Event{
+    alternative (GetEventType())
+    case (EV_REQUEST_LIFE) {
+        SetScriptResult(3000);
+    }
+    case (EV_REQUEST_TIMER) {
+        SetScriptResult(62);
+    }
+    case (EV_REQUEST_SPELL_SCORE) {
+        SetScriptResult(1000000);
+    }
+    others {
+        // do something in default case
+    }
+}
+
+@Initialize{
+    objBoss = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+    ObjEnemy_Regist(objBoss);
+    let objBgm = ObjSound_Create();
+    ObjSound_SetSoundDivision(objBgm, SOUND_BGM);
+    ObjSound_Load(objBgm, GetCurrentScriptDirectory() ~ "asset/bgm/th10_12.ogg");
+    ObjSound_Play(objBgm);
+    objSE = ObjSound_Create();
+    ObjSound_SetSoundDivision(objSE, SOUND_SE);
+    ObjSound_Load(objSE, GetCurrentScriptDirectory() ~ "asset/se/cat00.wav");
+    objSEShotSound = ObjSound_Create();
+    ObjSound_SetSoundDivision(objSEShotSound, SOUND_SE);
+    ObjSound_Load(objSEShotSound, GetCurrentScriptDirectory() ~ "asset/se/tan00.wav");
+    // LoadSound(GetCurrentScriptDirectory() ~ "asset/bgm/th10_12.ogg");
+    // PlayBGM(GetCurrentScriptDirectory() ~ "asset/bgm/th10_12.ogg", 0, 100);
+    // let objSound = ObjSound_Create();
+    // LoadSound(GetCurrentScriptDirectory() ~ "asset/se/se_cat00.ogg");
+    // ObjSound_Load(objSound, GetCurrentScriptDirectory() ~ "asset/se/se_cat00.ogg");
+    // ObjSound_Play(objSound);
+    // PlaySE(GetCurrentScriptDirectory() ~ "asset/se/se_cat00.ogg");
+
+    TDrawBoss;
+    TFinalize(objBoss, objScene);
+    TFirePattern;
+}
+
+@MainLoop{
+    ObjEnemy_SetIntersectionCircleToShot(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 32); 
+    ObjEnemy_SetIntersectionCircleToPlayer(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 24);
+    yield;
+}
+
+task TDrawBoss {
+    renderKaguyaIN(objBoss);
+    return;
+}
+
+task TFirePattern {
+    ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 150, 60);
+    wait(60);
+    
+    ObjSound_Play(objSE);
+    ObjEnemyBossScene_StartSpell(objScene);
+    ObjCutin_SetSpellcardS4("Miracle Sign ~ Seven-pointed Star", cutinBoss, NAZRIN, 240, 104, 104);
+    ObjCutin_LaunchS3(BYAKUREN, cutinBoss, "Lunatic");
+    wait(120);
+    let POINT = 7;
+    let LENGTH = 260.0;
+    let BRANCH = 22;
+    let ATTACK_INTERVAL = 60;
+    let SPAWN_INTERVAL = 1;
+    let TIME_TO_BLOOM = 60;
+
+    let random2 = 5;
+    let currentEdge = 0;
+    let currentBranch = 0;
+    let angleT = GetAngleToPlayer(objBoss);
+    let centerX = GetCenterX();
+    let centerY = ObjMove_GetY(objBoss);
+    let radius = (LENGTH / 2) / cos(18);
+    let centerToTipAngle = 270;
+    let tipX = centerX + cos(centerToTipAngle) * radius;
+    let tipY = centerY + sin(centerToTipAngle) * radius;
+    let edgeRunAngle = (centerToTipAngle + 180 - 36 / 2) % 360;
+    let totalBullet = BRANCH * 5;
+    let remainingBullet = totalBullet - 1;
+    while(ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) {
+        let bulletX = tipX + cos(edgeRunAngle) * LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let bulletY = tipY + sin(edgeRunAngle) * LENGTH / as_float(BRANCH - 1) * currentBranch;
+        let bulletAngle = edgeRunAngle + 90 + ((currentBranch - as_float(BRANCH - 1) / 2)) * 5;
+        let bulletAngle2 = edgeRunAngle + 90 + ((currentBranch - as_float(BRANCH - 1) / 2)) * 15;
+        let bulletAngle3 = edgeRunAngle + 90 + currentBranch;
+        // let bulletAngle = 180 + (branchAngle + tilt + randomBulletTilt);
+        let bullet = CreateShotA1(bulletX, bulletY, 0, bulletAngle2, DS_RICE_S_BLUE, 0);
+        CommandBullet3(bullet, TIME_TO_BLOOM + remainingBullet * SPAWN_INTERVAL, bulletAngle);
+        let bullet2 = CreateShotA1(bulletX, bulletY, 0, bulletAngle2, DS_RICE_S_GREEN, 0);
+        CommandBullet2(bullet2, TIME_TO_BLOOM + remainingBullet * SPAWN_INTERVAL, bulletAngle);
+        let bullet3 = CreateShotA1(bulletX, bulletY, 0, bulletAngle, DS_BALL_S_RED, 0);
+        CommandBullet(bullet3, TIME_TO_BLOOM + remainingBullet * SPAWN_INTERVAL);
+        // ObjSound_Play(objSEShotSound);
+
+        currentBranch += 1;
+        remainingBullet -= 1;
+        if (currentBranch >= BRANCH) {
+            // increase burst counter and wait accordingly
+            currentEdge += 1;
+            centerToTipAngle = (centerToTipAngle + 2 * 72) % 360;
+            if (currentEdge >= 5) {
+                centerToTipAngle = rand_int(0, 360);
+                currentEdge = 0;
+                remainingBullet = totalBullet - 1;
+                wait(ATTACK_INTERVAL);
+            }
+            else {
+                wait(SPAWN_INTERVAL);
+            }
+            tipX = centerX + cos(centerToTipAngle) * radius;
+            tipY = centerY + sin(centerToTipAngle) * radius;
+            edgeRunAngle = (centerToTipAngle + 180 - 36 / 2) % 360;
+            currentBranch = 0;
+        }
+        else {
+            wait(SPAWN_INTERVAL);
+        }
+        
+        
+        
+        // if all bursts have been fired, reset stuff
+        // if (currentEdge >= 5) {
+        //     currentEdge = 0;
+        //     centerToTipAngle = rand_int(0, 360);
+        //     edgeRunAngle = centerToTipAngle + 180 - 36;
+        //     tipX = centerX + cos(centerToTipAngle) * radius;
+        //     tipY = centerY + sin(centerToTipAngle) * radius;
+        //     wait(ATTACK_INTERVAL);
+        // }
+        // else {
+        //     centerToTipAngle += 72;
+        //     edgeRunAngle -= 36;
+        //     tipX = centerX + cos(centerToTipAngle) * radius;
+        //     tipY = centerY + sin(centerToTipAngle) * radius;
+        //     wait(SPAWN_INTERVAL);
+        // }
+    }
+}
+
+task CommandBullet(bullet, delay) {
+    wait(delay);
+    if (!Obj_IsDeleted(bullet)) {
+        ObjMove_SetSpeed(bullet, 2);
+    }
+    return;
+}
+
+task CommandBullet2(bullet, delay, bloomAngle) {
+    wait(delay);
+    let originalAngle = ObjMove_GetAngle(bullet);
+    if (!Obj_IsDeleted(bullet)) {
+        ObjMove_SetSpeed(bullet, 2.2);
+        ObjMove_SetAngle(bullet, bloomAngle);
+    }
+    wait(30);
+    if (!Obj_IsDeleted(bullet)) {
+        ObjMove_SetAcceleration(bullet, -0.02);
+        ObjMove_SetMaxSpeed(bullet, 1.7);
+    }
+    // wait(60);
+    // if (!Obj_IsDeleted(bullet)) {
+    //     ObjMove_SetAcceleration(bullet, 0);
+    //     ObjMove_SetMaxSpeed(bullet, 100);
+    //     // ObjMove_SetAngle(bullet, originalAngle);
+    //     ObjMove_SetSpeed(bullet, 1.2);
+    // }
+    return;
+}
+
+task CommandBullet3(bullet, delay, bloomAngle) {
+    wait(delay);
+    let originalAngle = ObjMove_GetAngle(bullet);
+    if (!Obj_IsDeleted(bullet)) {
+        ObjMove_SetSpeed(bullet, 2.3);
+        ObjMove_SetAngle(bullet, bloomAngle);
+    }
+    wait(30);
+    if (!Obj_IsDeleted(bullet)) {
+        ObjMove_SetAcceleration(bullet, -0.04);
+        ObjMove_SetMaxSpeed(bullet, 1.5);
+    }
+    // wait(60);
+    // if (!Obj_IsDeleted(bullet)) {
+    //     ObjMove_SetAcceleration(bullet, 0);
+    //     ObjMove_SetMaxSpeed(bullet, 100);
+    //     // ObjMove_SetAngle(bullet, originalAngle);
+    //     ObjMove_SetSpeed(bullet, 1.2);
+    // }
+    return;
+}

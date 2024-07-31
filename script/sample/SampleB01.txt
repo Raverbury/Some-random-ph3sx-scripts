@@ -1,0 +1,103 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["SampleB01"]
+#Text["SampleB01: ObjPatternShot Demonstrations[r]    Powered by Junko"]
+
+#include "script/default_system/Default_ShotConst.txt"
+
+let objEnemy;
+let frame = 0;
+
+@Event {
+	alternative(GetEventType())
+	case(EV_REQUEST_LIFE) {
+		SetScriptResult(500);
+	}
+}
+
+@Initialize {
+	objEnemy = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+	ObjEnemy_Regist(objEnemy);
+
+	let imgExRumia = GetCurrentScriptDirectory ~ "ExRumia.png";
+	ObjPrim_SetTexture(objEnemy, imgExRumia);
+	ObjSprite2D_SetSourceRect(objEnemy, 64, 1, 127, 64);
+	ObjSprite2D_SetDestCenter(objEnemy);
+
+	let cx = GetStgFrameWidth() / 2;
+	ObjMove_SetDestAtFrame(objEnemy, cx, 120, 60);
+	
+	SetPlayerInvincibilityFrame(600000);
+	
+	TShot();
+}
+
+@MainLoop {
+	let ex = ObjMove_GetX(objEnemy);
+	let ey = ObjMove_GetY(objEnemy);
+
+	ObjEnemy_SetIntersectionCircleToShot(objEnemy, ex, ey, 32);
+	ObjEnemy_SetIntersectionCircleToPlayer(objEnemy, ex, ey, 24);
+	
+	yield;
+
+	if (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) <= 0) {
+		Obj_Delete(objEnemy);
+		CloseScript(GetOwnScriptID());
+		return;
+	}
+}
+
+task TShot() {
+	let objPattern1 = ObjPatternShot_Create();
+	
+	ObjPatternShot_SetParentObject(objPattern1, objEnemy);
+	
+	ObjPatternShot_SetDelay(objPattern1, 12);
+	ObjPatternShot_SetGraphic(objPattern1, DS_BALL_S_RED);
+	
+	ObjPatternShot_SetSpeed(objPattern1, 2, 1);
+	ObjPatternShot_SetAngle(objPattern1, 90, 0);
+	
+	ObjPatternShot_SetPatternType(objPattern1, PATTERN_RING);
+	ObjPatternShot_SetShotCount(objPattern1, 22, 1);
+	
+	ObjPatternShot_SetShootRadius(objPattern1, 48);
+	
+	let objPattern2 = ObjPatternShot_Create();
+	ObjPatternShot_CopySettings(objPattern2, objPattern1);
+	
+	ObjPatternShot_SetGraphic(objPattern2, DS_BALL_S_PURPLE);
+	
+	ObjPatternShot_SetSpeed(objPattern2, 1, 1);
+	
+	ObjPatternShot_SetShotCount(objPattern2, 10, 1);
+	
+	wait(60);
+	
+	let frame = 0;
+	while (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) > 0) {
+		if (frame % 30 == 0) {
+			ObjPatternShot_SetBasePointOffsetCircle(objPattern1, rand(0, 360), 32);
+			ObjPatternShot_Fire(objPattern1);
+		}
+		
+		if (frame % 40 == 0 && frame > 75) {
+			for each (iX in [288, 96]) {
+				ObjPatternShot_SetBasePoint(objPattern2, iX, 144);
+				ObjPatternShot_SetBasePointOffsetCircle(objPattern2, rand(0, 360), 32);
+				
+				ObjPatternShot_SetAngle(objPattern2, rand(0, 360), 0);
+				
+				ObjPatternShot_Fire(objPattern2);
+			}
+		}
+		
+		frame++;
+		yield;
+	}
+	
+	Obj_Delete(objPattern1);
+	Obj_Delete(objPattern2);
+}
+

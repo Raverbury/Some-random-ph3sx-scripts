@@ -1,0 +1,75 @@
+#TouhouDanmakufu[Stage]
+#ScriptVersion[3]
+#Title["SampleRC02"]
+#Text["SampleRC02: Particle Rendering (Custom Shader)"]
+
+@Initialize {
+	TSample();
+}
+
+@MainLoop {
+	yield;
+}
+
+task TSample() {
+	let dir = GetCurrentScriptDirectory();
+
+	let obj = ObjParticleList_Create(OBJ_PARTICLE_LIST_2D);
+	
+	Obj_SetRenderPriorityI(obj, 21);
+	ObjPrim_SetTexture(obj, dir ~ "Effect01.png");
+	
+	ObjRender_SetBlendType(obj, BLEND_ADD_ARGB);
+	
+	//You may also treat a 2D particle list object as a 2D sprite object.
+	ObjSprite2D_SetSourceRect(obj, 140, 39, 186, 86);
+	ObjSprite2D_SetDestCenter(obj);
+	
+	//This is absolutely necessary, rendering will not be performed otherwise.
+	ObjPrim_SetVertexIndex(obj, [0, 1, 2, 3]);
+	
+	ObjShader_SetShaderF(obj, dir ~ "SampleRC02_HLSL.txt");
+	ObjShader_SetTechnique(obj, "Render");
+	
+	loop {
+		CreateParticle();
+		yield;
+	}
+	
+	task CreateParticle() {
+		let x = rand(0, 384);
+		let y = rand(0, 448);
+		let x_speed = rand(-1, 1);
+		let y_speed = rand(-1, 1);
+		let z_angle = rand(0, 360);
+		let z_add = rand(-5, 5);
+		let scale = rand(0.3, 0.7);
+		
+		let timer_begin = floor(rand(10, 30 + 1));
+		ascent (i in 0..timer_begin) Update(Interpolate_Smooth(0, 1, i / (timer_begin - 1)));
+		
+		loop (rand(30, 90)) Update(1);
+		
+		let timer_end = floor(rand(10, 30 + 1));
+		descent (i in 0..timer_end) Update(Interpolate_Smooth(0, 1, i / (timer_end - 1)));
+		
+		function Update(mul_scale) {
+			//Sets up instance data.
+			ObjParticleList_SetScale(obj, scale * mul_scale, scale * mul_scale, 1);
+			ObjParticleList_SetAngle(obj, 0, 0, z_angle);
+			ObjParticleList_SetPosition(obj, x, y, 1);
+			
+			//Three slots are provided. You may put anything here, as long as they are floats.
+			ObjParticleList_SetExtraData(obj, y / 448, 0, 0);
+			
+			//Submits the current data to an instance, cleared every frame.
+			ObjParticleList_AddInstance(obj);
+		
+			x += x_speed;
+			y += y_speed;
+			z_angle += z_add;
+			yield;
+		}
+	}
+}
+

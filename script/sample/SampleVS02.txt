@@ -1,0 +1,164 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["SampleVS02"]
+#Text["SampleVS02: Vertex Shader-Based Distortion Effect"]
+#Background["script/default_system/Default_Background_IceMountain.txt"]
+
+#include "script/default_system/Default_ShotConst.txt"
+
+let objEnemy;
+let objPlayer;
+let frame = 0;
+
+@Event {
+	alternative(GetEventType())
+	case(EV_REQUEST_LIFE) {
+		SetScriptResult(500);
+	}
+}
+
+@Initialize {
+	objPlayer = GetPlayerObjectID();
+
+	objEnemy = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+	ObjEnemy_Regist(objEnemy);
+
+	let imgExRumia = GetCurrentScriptDirectory ~ "ExRumia.png";
+	ObjPrim_SetTexture(objEnemy, imgExRumia);
+	ObjSprite2D_SetSourceRect(objEnemy, 64, 1, 127, 64);
+	ObjSprite2D_SetDestCenter(objEnemy);
+
+	let cx = GetStgFrameWidth() / 2;
+	ObjMove_SetDestAtFrame(objEnemy, cx, 180, 60);
+
+	TWaveCircle();
+	TFinalize();
+}
+
+@MainLoop {
+	let ex = ObjMove_GetX(objEnemy);
+	let ey = ObjMove_GetY(objEnemy);
+
+	if (frame == 120) {
+		let px = GetPlayerX();
+		ObjMove_SetDestAtFrame(objEnemy, rand(192 - 80, 192 + 80), rand(100, 230), 40);
+		//ObjMove_SetDestAtFrame(objEnemy, 0, rand(120, 300), 40);
+		
+		frame = 0;
+	}
+
+	ObjEnemy_SetIntersectionCircleToShot(objEnemy, ex, ey, 32);
+
+	frame++;
+	yield;
+}
+
+task TWaveCircle() {
+	wait(60);
+
+	let color = [1, 0.065, 0.065];
+	let renderTexture = GetReservedRenderTargetName(0);
+
+	let stripWave = [];
+	
+	let countEdge = 32;
+	let countStrip = 4;
+	let maxRadius = 128;
+	
+	let frameLeft = GetStgFrameLeft();
+	let frameTop = GetStgFrameTop();
+	
+	let objWave = ObjPrim_Create(OBJ_PRIMITIVE_2D);
+		
+	Obj_SetRenderPriorityI(objWave, 26);
+	ObjPrim_SetPrimitiveType(objWave, PRIMITIVE_TRIANGLELIST);
+	ObjPrim_SetTexture(objWave, renderTexture);
+	
+	ObjPrim_SetVertexCount(objWave, countEdge * countStrip * 6);
+	
+	ascent (i in 0..countStrip) {
+		let stripWidth = maxRadius / (countStrip - 1);
+		let rInEdge = stripWidth * i;
+		FillRingVertex(i * countEdge * 6, rInEdge, rInEdge + stripWidth);
+	}
+	
+	ObjRender_SetVertexShaderRenderingMode(objWave, true);
+	ObjShader_SetShaderF(objWave, GetCurrentScriptDirectory() ~ "SampleVS02_HLSL.txt");
+	ObjShader_SetTechnique(objWave, "Render");
+	
+	let ex = ObjMove_GetX(objEnemy);
+	let ey = ObjMove_GetY(objEnemy);
+	
+	let nowRadius = 0;
+	
+	let t = 0;
+	while (!Obj_IsDeleted(objEnemy)) {
+		ex = ObjMove_GetX(objEnemy);
+		ey = ObjMove_GetY(objEnemy);
+		
+		if(nowRadius < maxRadius){
+			let tmp = sin((t + 1) / 50 * 90);
+			nowRadius = maxRadius * tmp;
+		}
+		
+		Update();
+	}
+	{
+		let _radius = nowRadius;
+		
+		descent(i in 0..30){
+			let tmp = sin((i + 1) / 30 * 90);
+			nowRadius = _radius * tmp;
+			
+			Update();
+		}
+	}
+	
+	Obj_Delete(objWave);
+	
+	function Update() {
+		RenderToTextureA1(renderTexture, 20, 25, true);
+		
+		ObjShader_SetFloat(objWave, "frame_", t);
+		ObjShader_SetFloat(objWave, "waveSine_", 0.8 + sin(t * 5) * 0.5);
+		ObjShader_SetFloatArray(objWave, "waveRadius_", [nowRadius, maxRadius]);
+		
+		ObjShader_SetFloatArray(objWave, "enemyPos_", [ex + frameLeft, ey + frameTop]);
+		ObjShader_SetFloatArray(objWave, "waveColor_", color);
+		
+		//ObjRender_SetPosition(objWave, ex, ey, 1);
+		
+		t++;
+		yield;
+	}
+	
+	function FillRingVertex(vi_start, r_inner, r_outer) {
+		ascent (i in 0..countEdge) {
+			let vi = vi_start + i * 6;
+			let v_angle = 360 / (countEdge - 1);
+			let s1 = sin(v_angle * i);
+			let c1 = cos(v_angle * i);
+			let s2 = sin(v_angle * (i + 1));
+			let c2 = cos(v_angle * (i + 1));
+			ObjPrim_SetVertexPosition(objWave, vi + 0, r_inner * c1, r_inner * s1, 1);
+			ObjPrim_SetVertexPosition(objWave, vi + 1, r_outer * c1, r_outer * s1, 1);
+			ObjPrim_SetVertexPosition(objWave, vi + 2, r_inner * c2, r_inner * s2, 1);
+			ObjPrim_SetVertexPosition(objWave, vi + 3, r_outer * c1, r_outer * s1, 1);
+			ObjPrim_SetVertexPosition(objWave, vi + 4, r_inner * c2, r_inner * s2, 1);
+			ObjPrim_SetVertexPosition(objWave, vi + 5, r_outer * c2, r_outer * s2, 1);
+			ObjPrim_SetVertexUVT(objWave, vi + 0, r_inner * c1, r_inner * s1);
+			ObjPrim_SetVertexUVT(objWave, vi + 1, r_outer * c1, r_outer * s1);
+			ObjPrim_SetVertexUVT(objWave, vi + 2, r_inner * c2, r_inner * s2);
+			ObjPrim_SetVertexUVT(objWave, vi + 3, r_outer * c1, r_outer * s1);
+			ObjPrim_SetVertexUVT(objWave, vi + 4, r_inner * c2, r_inner * s2);
+			ObjPrim_SetVertexUVT(objWave, vi + 5, r_outer * c2, r_outer * s2);
+		}
+	}
+}
+
+task TFinalize(){
+	while (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) > 0) { yield; }
+	Obj_Delete(objEnemy);
+	wait(120);
+	CloseScript(GetOwnScriptID());
+}

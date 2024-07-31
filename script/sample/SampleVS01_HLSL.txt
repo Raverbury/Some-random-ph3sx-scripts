@@ -1,0 +1,53 @@
+sampler samp0_ : register(s0);
+
+//2 top-level semantics are provided by the engine in the case of 2D render objects:
+//		WORLD:
+//			Contains the transformation matrix of the render object.
+//		VIEWPROJECTION:
+//			Contains the projection*camera matrix, used for correctly tranforming vertices to screen-space coordinates.
+float4x4 g_mWorld 	: WORLD;
+float4x4 g_mViewProj 	: VIEWPROJECTION;
+
+float frame_;
+
+struct VS_INPUT {
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+};
+struct PS_INPUT {
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+};
+struct PS_OUTPUT {
+    float4 color 	: COLOR0;
+};
+
+PS_INPUT mainVS(VS_INPUT inVs) {
+	PS_INPUT outVs;
+
+	outVs.diffuse = inVs.diffuse;
+	outVs.texCoord = inVs.texCoord;
+	outVs.position = mul(inVs.position, g_mWorld);
+	outVs.position = mul(outVs.position, g_mViewProj);
+	outVs.position.z = 1.0f;
+
+	return outVs;
+}
+
+PS_OUTPUT mainPS(PS_INPUT inPs) {
+	PS_OUTPUT outPs;
+
+	outPs.color = tex2D(samp0_, inPs.texCoord - float2(frame_, 0)) * inPs.diffuse;
+
+	return outPs;
+}
+
+technique Render {
+	pass P0 {
+		VertexShader = compile vs_2_0 mainVS();
+		PixelShader = compile ps_2_0 mainPS();
+	}
+}
+

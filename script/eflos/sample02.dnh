@@ -1,0 +1,111 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["Eflos.Sample02"]
+#Text["Eflos.Sample02: Le lazor"]
+
+// Shotsheet
+#include "script/default_system/Default_ShotConst.txt"
+
+// Libs
+#include "script/Cutin/Cutin.txt"
+#include "script/Gizmo/GizmoSpriteLibrary.txt"
+#include "./lib/common.dnh"
+
+let objBoss;
+let objScene = GetEnemyBossSceneObjectID();
+let cutinBoss = GetCurrentScriptDirectory() ~ "asset/img/cutin_sekibanki.png";
+
+@Event{
+    alternative (GetEventType())
+    case (EV_REQUEST_LIFE) {
+        SetScriptResult(3000);
+    }
+    case (EV_REQUEST_TIMER) {
+        SetScriptResult(62);
+    }
+    case (EV_REQUEST_SPELL_SCORE) {
+        SetScriptResult(1000000);
+    }
+    others {
+        // do something in default case
+    }
+}
+
+@Initialize{
+    objBoss = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+    ObjEnemy_Regist(objBoss);
+    PlayBGM(GetCurrentScriptDirectory() ~ "asset/bgm/th10_12.ogg", 0, 100);
+
+    TDrawBoss;
+    TFinalize(objBoss, objScene);
+    TFirePattern;
+}
+
+@MainLoop{
+    ObjEnemy_SetIntersectionCircleToShot(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 32); 
+    ObjEnemy_SetIntersectionCircleToPlayer(objBoss, ObjMove_GetX(objBoss), ObjMove_GetY(objBoss), 24);
+    yield;
+}
+
+task TDrawBoss {
+    renderKaguyaIN(objBoss);
+    return;
+}
+
+task TFirePattern {
+    ObjMove_SetDestAtFrame(objBoss, GetCenterX(), 60, 60);
+    wait(60);
+    ObjEnemyBossScene_StartSpell(objScene);
+    ObjCutin_SetSpellcardS4("Laser sign ~ Lasery Laser", cutinBoss, NAZRIN, 240, 104, 104);
+    ObjCutin_LaunchS3(BYAKUREN, cutinBoss, "Lunatic");
+    wait(120);
+    let tilt = 33;
+    let BRANCH = 10;
+    let BURST = 1;
+    let DELAY = 300;
+    let BURST_DELAY = 5;
+    let currentBurst = 0;
+    let random2 = 5;
+    let angleT = GetAngleToPlayer(objBoss);
+    let LASER_COLORS = [DS_BEAM_RED, DS_BEAM_YELLOW, DS_BEAM_ORANGE, DS_BEAM_GREEN, DS_BEAM_BLUE];
+    while(ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0) {
+        let bossX = ObjMove_GetX(objBoss);
+        let bossY = ObjMove_GetY(objBoss);
+        let randomBulletTilt = 0;
+        ascent (j in 0..BRANCH) {
+            let branchAngle = angleT + (360 * ((j) / BRANCH)) + tilt * random2/3 * currentBurst;
+            let bulletX = bossX + cos(branchAngle) * 40 * 1;
+            let bulletY = bossY + sin(branchAngle) * 40 * 1;
+            let bulletAngle = 180 + (branchAngle + tilt + randomBulletTilt);
+            let bulletGraphic;
+            let laser = CreateStraightLaserA1(bulletX, bulletY, branchAngle, 512, 40, 120, LASER_COLORS[j % length(LASER_COLORS)], 60);
+            // ObjShot_SetSpellResist(bullet, false);
+            RotateLaser(laser, 0.12, bossX, bossY);
+        }
+        
+        // increase burst counter and wait accordingly
+        currentBurst += 1;
+        // if all bursts have been fired, reset stuff
+        if (currentBurst >= BURST) {
+            currentBurst = 0;
+            tilt *= -1;
+            random2 = rand_int(1, 5);
+            randomBulletTilt = rand_int(-2, 2);
+            angleT = GetAngleToPlayer(objBoss);
+            wait(DELAY);
+        }
+        else {
+            wait(BURST_DELAY);
+        }
+    }
+}
+
+task RotateLaser(laser, rotationSpeed, centerX, centerY) {
+    while (!Obj_IsDeleted(laser)) {
+        let newAngle = ObjStLaser_GetAngle(laser) + rotationSpeed;
+        ObjMove_SetPosition(laser, centerX + cos(newAngle) * 40, centerY + sin(newAngle) * 40);
+        ObjStLaser_SetAngle(laser, newAngle);
+        yield;
+    }
+    return;
+}

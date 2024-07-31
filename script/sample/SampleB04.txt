@@ -1,0 +1,87 @@
+#TouhouDanmakufu[Single]
+#ScriptVersion[3]
+#Title["SampleB04"]
+#Text["SampleB04: ObjPatternShot Transforms 3 : 14 Werewolves[r]Transformation"]
+
+#include "script/default_system/Default_ShotConst.txt"
+
+let objEnemy;
+let frame = 0;
+
+@Event {
+	alternative(GetEventType())
+	case(EV_REQUEST_LIFE) {
+		SetScriptResult(2500);
+	}
+}
+
+@Initialize {
+	objEnemy = ObjEnemy_Create(OBJ_ENEMY_BOSS);
+	ObjEnemy_Regist(objEnemy);
+
+	let imgExRumia = GetCurrentScriptDirectory ~ "ExRumia.png";
+	ObjPrim_SetTexture(objEnemy, imgExRumia);
+	ObjSprite2D_SetSourceRect(objEnemy, 64, 1, 127, 64);
+	ObjSprite2D_SetDestCenter(objEnemy);
+
+	SetPlayerInvincibilityFrame(6000000);
+	ObjMove_SetDestAtFrame(objEnemy, 192, 224, 60);
+	
+	TShot();
+}
+
+@MainLoop {
+	let ex = ObjMove_GetX(objEnemy);
+	let ey = ObjMove_GetY(objEnemy);
+
+	ObjEnemy_SetIntersectionCircleToShot(objEnemy, ex, ey, 32);
+	ObjEnemy_SetIntersectionCircleToPlayer(objEnemy, ex, ey, 24);
+	
+	yield;
+
+	if (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) <= 0) {
+		Obj_Delete(objEnemy);
+		CloseScript(GetOwnScriptID());
+		return;
+	}
+}
+
+task TShot() {
+	wait(90);
+	while (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) > 0) {
+		_TShot(1, DS_RICE_M_PURPLE);
+		wait(330);
+		_TShot(-1, DS_RICE_M_RED);
+		wait(330);
+	}
+}
+
+task _TShot(dir, graphic) {
+	if (ObjEnemy_GetInfo(objEnemy, INFO_LIFE) <= 0) { return; }
+
+	let objPattern = ObjPatternShot_Create();
+	
+	ObjPatternShot_SetParentObject(objPattern, objEnemy);
+	ObjPatternShot_SetPatternType(objPattern, PATTERN_RING);
+	ObjPatternShot_SetShotType(objPattern, OBJ_CURVE_LASER);
+	
+	ObjPatternShot_SetDelay(objPattern, 0);
+	ObjPatternShot_SetGraphic(objPattern, graphic);
+	
+	ObjPatternShot_SetAngle(objPattern, rand(0, 360), 0);
+	ObjPatternShot_SetSpeed(objPattern, 6, 6);
+	
+	ObjPatternShot_SetShotCount(objPattern, 28, 1);
+	ObjPatternShot_SetLaserParameter(objPattern, 8, 128);
+	
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 30, 0, 0, -8 * dir);
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 30, 30, 0, 8 * dir);
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 30, 60, -0.12, -4 * dir);
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 30, 90, 0, 4 * dir);
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 30, 120, 0, -8 * dir);
+	ObjPatternShot_AddTransform(objPattern, TRANSFORM_ADD_SPEED_ANGLE, 45, 150, 0, 7 * dir);
+	
+	ObjPatternShot_Fire(objPattern);
+	
+	Obj_Delete(objPattern);
+}

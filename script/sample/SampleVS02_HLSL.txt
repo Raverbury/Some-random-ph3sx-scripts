@@ -1,0 +1,80 @@
+sampler samp0_ : register(s0);
+
+//2 top-level semantics are provided by the engine in the case of 2D render objects:
+//		WORLD:
+//			Contains the transformation matrix of the render object.
+//		VIEWPROJECTION:
+//			Contains the projection*camera matrix, used for correctly tranforming vertices to screen-space coordinates.
+float4x4 g_mViewProj : VIEWPROJECTION;
+
+float frame_; 
+float2 waveRadius_; 
+float waveSine_;
+float2 enemyPos_;
+float2 framePos_;
+float3 waveColor_;
+
+static const float RENDER_LEFT = 32.5f / 1024.0f;		//mininum render width
+static const float RENDER_TOP = 16.5f / 512.0f;			//maximum render width
+static const float RENDER_RIGHT = 415.5f / 1024.0f;		//mininum render height
+static const float RENDER_BOTTOM = 463.5f / 512.0f;		//maximum render height
+static const float2 SCREEN_SPACE = float2(1024.0f, 512.0f);
+
+struct VS_INPUT {
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+};
+struct PS_INPUT {
+	float4 position : POSITION;
+	float4 diffuse 	: COLOR0;
+	float2 texCoord : TEXCOORD0;
+	float blend 	: FOG;
+};
+struct PS_OUTPUT {
+    float4 color 	: COLOR0;
+};
+
+PS_INPUT mainVS(VS_INPUT inVs) {
+	PS_INPUT outVs;
+	
+	float mul_scale = waveRadius_.x / waveRadius_.y;
+	float2 posVertex = inVs.position.xy * mul_scale;
+	
+	float dist = length(inVs.position.xy * mul_scale);
+	outVs.blend = saturate((waveRadius_.x - dist) / waveRadius_.x);
+	
+	float2 cos_sin = posVertex.xy / dist;
+	float2 distortPos = cos_sin.xy * waveRadius_.x * min(outVs.blend, 0.22f) * 0.5f * waveSine_;
+	distortPos.x += (cos_sin.x * outVs.blend) * 16.0f;
+	distortPos.y += (cos_sin.y * outVs.blend) * 16.0f;
+	
+	outVs.texCoord = inVs.texCoord * mul_scale + enemyPos_ / SCREEN_SPACE;
+	outVs.position = mul(float4(posVertex + enemyPos_ + distortPos, inVs.position.zw), g_mViewProj);
+	outVs.position.zw = (float2)1.0f;
+	outVs.diffuse = inVs.diffuse;
+
+	return outVs;
+}
+
+PS_OUTPUT mainPS(PS_INPUT inPs) {
+	PS_OUTPUT outPs;
+	
+	inPs.texCoord.x = clamp(inPs.texCoord.x, RENDER_LEFT, RENDER_RIGHT);
+	inPs.texCoord.y = clamp(inPs.texCoord.y, RENDER_TOP, RENDER_BOTTOM);
+	
+	float3 colorRGB = tex2D(samp0_, inPs.texCoord).rgb;
+	colorRGB.rgb -= (1.0f - waveColor_.xyz) * inPs.blend;
+	
+	outPs.color = float4(colorRGB, 1.0f) * inPs.diffuse;
+	
+	return outPs;
+}
+
+technique Render {
+	pass P0 {
+		VertexShader = compile vs_3_0 mainVS();
+		PixelShader = compile ps_3_0 mainPS();		
+	}
+}
+

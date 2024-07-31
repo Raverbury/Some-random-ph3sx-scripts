@@ -1,0 +1,74 @@
+#TouhouDanmakufu[Stage]
+#ScriptVersion[3]
+#Title["SampleVS03"]
+#Text["SampleVS03: Basic Vertex Shaders (3D)"]
+
+@Initialize {
+	SetCameraFocusX(0);
+	SetCameraFocusY(0);
+	SetCameraFocusZ(0);
+	SetCameraRadius(800);
+	SetCameraElevationAngle(35);
+	SetCameraAzimuthAngle(0);
+
+	SetFogParam(0, 768, 64, 0, 0);
+
+	TSample();
+}
+
+@MainLoop {
+	if (GetKeyState(KEY_Q) == KEY_PUSH)
+		CloseStgScene();
+	yield;
+}
+
+task TSample() {
+	let dir = GetCurrentScriptDirectory();
+	let path = dir ~ "../default_system/img/Default_Background_IceMountain_Spell01.png";
+
+	let obj = ObjPrim_Create(OBJ_PRIMITIVE_3D);
+	Obj_SetRenderPriorityI(obj, 22);
+	ObjPrim_SetPrimitiveType(obj, PRIMITIVE_TRIANGLESTRIP);
+	ObjPrim_SetTexture(obj, path);
+	
+	let VC = 5000;
+	
+	ObjPrim_SetVertexCount(obj, VC * 2);
+	ObjRender_SetPosition(obj, 320, 240, 1);
+	
+	ascent (i in 0..VC) {
+		let v_angle = 360 / (VC - 1) * i;
+		let tex_v = 1 / (VC - 1) * i;
+		ObjPrim_SetVertexPosition(obj, i * 2, 0, 0, 1);
+		ObjPrim_SetVertexPosition(obj, i * 2 + 1, 256 * cos(v_angle), 256 * sin(v_angle), 1);
+		ObjPrim_SetVertexUV(obj, i * 2, 0, tex_v);
+		ObjPrim_SetVertexUV(obj, i * 2 + 1, 1, tex_v);
+	}
+	
+	//Enables vertex shader rendering. 
+	//If this is set to true and a vertex+pixel shader isn't used, rendering will always fail.
+	ObjRender_SetVertexShaderRenderingMode(obj, true);
+	
+	ObjShader_SetShaderF(obj, dir ~ "SampleVS03_HLSL.txt");
+	ObjShader_SetTechnique(obj, "Render");
+
+	let t = 0;
+	while (true) {
+		ObjRender_SetAngleX(obj, -90);
+		ObjRender_SetAngleZ(obj, t * 70);
+	
+		ObjShader_SetFloat(obj, "frame_", t);
+		/*
+		//Equivalent to these
+		ascent(i in 0..VC){
+			let tex_v = 1 / (VC - 1) * i;
+			ObjPrim_SetVertexUV(obj, i * 2, 0 - t, tex_v);
+			ObjPrim_SetVertexUV(obj, i * 2 + 1, 1 - t, tex_v);
+		}
+		*/
+	
+		t += 0.003;
+		yield;
+	}
+}
+

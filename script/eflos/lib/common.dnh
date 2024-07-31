@@ -1,0 +1,46 @@
+task TFinalize(objBoss, objScene) {
+    while(ObjEnemy_GetInfo(objBoss, INFO_LIFE) > 0){yield;}
+    Obj_Delete(objBoss);
+    DeleteShotAll(TYPE_ALL, TYPE_IMMEDIATE);
+    SetAutoDeleteObject(true);
+    CloseScript(GetOwnScriptID());
+    if(ObjEnemyBossScene_GetInfo(objScene, INFO_PLAYER_SHOOTDOWN_COUNT)
+        +ObjEnemyBossScene_GetInfo(objScene, INFO_PLAYER_SPELL_COUNT) == 0){
+        AddScore(ObjEnemyBossScene_GetInfo(objScene, INFO_SPELL_SCORE));
+    }
+    return;
+}
+
+
+
+/**
+ * Get X coord center of stage
+ */
+function GetCenterX(){
+    return GetStgFrameWidth() / 2;
+}
+
+/**
+ * Get Y coord center of stage
+ */
+function GetCenterY(){
+    return GetStgFrameHeight() / 2;
+}
+
+/**
+ * Get the sum after mod for an integer within range
+ * Say, range is 1 to 7, number is 8, we get 1; or if number is 13, 5
+ */
+function IntegerModRollover(number, minNumber, maxNumber) {
+    let interval = maxNumber - minNumber + 1;
+    if (interval <= 0) return maxNumber;
+    return minNumber + number % interval;
+}
+
+function LoadAndPlayBGM(bgmPath) {
+    let objBgm = ObjSound_Create();
+    ObjSound_SetSoundDivision(objBgm, SOUND_BGM);
+    ObjSound_Load(objBgm, bgmPath);
+    ObjSound_Play(objBgm);
+    return objBgm;
+}

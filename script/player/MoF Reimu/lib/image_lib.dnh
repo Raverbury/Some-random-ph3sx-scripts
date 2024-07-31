@@ -1,0 +1,42 @@
+/* -=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=
+	Player Recreation Project: MoF Reimu
+	by Frenticpony
+	
+	image_lib.dnh v2.5
+-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-=-= */
+
+let img_ascii = GetCurrentScriptDirectory() ~ "../img/ascii.png";
+let img_player = GetCurrentScriptDirectory() ~ "../img/pl00.png";
+let img_hitbox = GetCurrentScriptDirectory() ~ "../img/hitboximg.png";
+let img_eff = GetCurrentScriptDirectory() ~ "../img/img_eff.png";
+let img_eff01 = GetCurrentScriptDirectory() ~ "../img/eff01.png";
+let img_eff_leaf = GetCurrentScriptDirectory() ~ "../img/eff_leaf.png";
+let img_effect_base = GetCurrentScriptDirectory() ~ "../img/eff_base.png";
+let img_effect_base_mult = GetCurrentScriptDirectory() ~ "../img/eff_base_mult.png";
+let img_effect_line = GetCurrentScriptDirectory() ~ "../img/eff_line.png";
+
+function LoadPlayerTextures()
+{
+	LoadTexture(img_ascii);
+	LoadTexture(img_player);
+	LoadTexture(img_hitbox);
+	LoadTexture(img_eff);
+	LoadTexture(img_eff01);
+	LoadTexture(img_eff_leaf);
+	LoadTexture(img_effect_base);
+	LoadTexture(img_effect_base_mult);
+	LoadTexture(img_effect_line);
+}
+
+function RemovePlayerTextures()
+{
+	RemoveTexture(img_ascii);
+	RemoveTexture(img_player);
+	RemoveTexture(img_hitbox);
+	RemoveTexture(img_eff);
+	RemoveTexture(img_eff01);
+	RemoveTexture(img_eff_leaf);
+	RemoveTexture(img_effect_base);
+	RemoveTexture(img_effect_base_mult);
+	RemoveTexture(img_effect_line);
+}
